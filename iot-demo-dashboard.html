@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <title>IoT Dashboard Lengkap</title>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        background-color: #121212;
+        color: white;
+        text-align: center;
+        padding: 20px;
+      }
+      .card {
+        background-color: #1e1e1e;
+        border-radius: 10px;
+        padding: 20px;
+        margin: 20px auto;
+        width: 300px;
+      }
+      .value {
+        font-size: 2em;
+      }
+      .alert {
+        color: red;
+        font-weight: bold;
+        margin-top: 10px;
+      }
+      canvas {
+        background-color: #1e1e1e;
+        border-radius: 10px;
+        padding: 10px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>IoT Dashboard Lengkap</h1>
+
+    <div class="card">
+      <h2>Suhu</h2>
+      <div class="value" id="temp">-- °C</div>
+      <div class="alert" id="alert"></div>
+    </div>
+
+    <div class="card">
+      <h2>Kelembaban</h2>
+      <div class="value" id="hum">-- %</div>
+    </div>
+
+    <div class="card">
+      <h2>Kontrol</h2>
+      <button onclick="setControl(true)">Hidupkan LED</button>
+      <button onclick="setControl(false)">Matikan LED</button>
+    </div>
+
+    <canvas id="chart" width="400" height="200"></canvas>
+
+    <script>
+      var firebaseConfig = {
+        apiKey: "AIzaSyCt6rMIka4IN_U1qhdvAPg9NSwUfR7o3vM",
+        authDomain: "iot-demo-fa1c8.firebaseapp.com",
+        databaseURL:
+          "https://iot-demo-fa1c8-default-rtdb.asia-southeast1.firebasedatabase.app",
+        projectId: "iot-demo-fa1c8",
+        storageBucket: "iot-demo-fa1c8.appspot.com",
+        messagingSenderId: "626764061253",
+        appId: "1:626764061253:web:8bb6e4edaa5cdec366a12c",
+      };
+      firebase.initializeApp(firebaseConfig);
+      const db = firebase.database();
+
+      const tempDisplay = document.getElementById("temp");
+      const humDisplay = document.getElementById("hum");
+      const alertBox = document.getElementById("alert");
+
+      const chartCtx = document.getElementById("chart").getContext("2d");
+      const chartData = {
+        labels: [],
+        datasets: [
+          {
+            label: "Suhu (°C)",
+            borderColor: "#ff6384",
+            backgroundColor: "rgba(255,99,132,0.2)",
+            data: [],
+          },
+          {
+            label: "Kelembaban (%)",
+            borderColor: "#36a2eb",
+            backgroundColor: "rgba(54,162,235,0.2)",
+            data: [],
+          },
+        ],
+      };
+      const chart = new Chart(chartCtx, {
+        type: "line",
+        data: chartData,
+        options: {
+          responsive: true,
+          scales: {
+            x: {
+              display: true,
+              title: { display: true, text: "Waktu" },
+            },
+            y: {
+              display: true,
+              title: { display: true, text: "Nilai" },
+            },
+          },
+        },
+      });
+
+      function updateChart(temp, hum) {
+        const now = new Date();
+        const time = now.toLocaleTimeString();
+
+        chartData.labels.push(time);
+        chartData.datasets[0].data.push(temp);
+        chartData.datasets[1].data.push(hum);
+
+        if (chartData.labels.length > 10) {
+          chartData.labels.shift();
+          chartData.datasets[0].data.shift();
+          chartData.datasets[1].data.shift();
+        }
+        chart.update();
+      }
+
+      db.ref("/sensor").on("value", (snapshot) => {
+        const data = snapshot.val();
+        if (data) {
+          tempDisplay.textContent = data.temperature + " °C";
+          humDisplay.textContent = data.humidity + " %";
+
+          if (data.temperature > 30) {
+            alertBox.textContent = "Peringatan: Suhu tinggi!";
+          } else {
+            alertBox.textContent = "";
+          }
+
+          updateChart(data.temperature, data.humidity);
+
+          const timestamp = Math.floor(Date.now() / 1000);
+          db.ref("/logs/" + timestamp).set({
+            temperature: data.temperature,
+            humidity: data.humidity,
+          });
+        }
+      });
+
+      function setControl(state) {
+        db.ref("/kontrol").set({ led: state });
+      }
+    </script>
+  </body>
+</html>
